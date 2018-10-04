@@ -5,7 +5,6 @@ from config import Config
 from models import Subscription, Message
 import paho.mqtt.client as mqtt_api
 
-
 cfg = Config.get_global_instance()
 
 
@@ -36,25 +35,22 @@ class MQTT(db.Model):
         subscriptions = Subscription.query.filter_by(service=message.service).all()
         if len(subscriptions) == 0:
             return 0
-        mqtt_devices = MQTT.query.filter(MQTT.uuid.in_([l.device for l in subscriptions])).all()
 
-        if len(mqtt_devices) > 0:
+        #gets all devices uuids in the subscription object
+        uuids = [sub.device for sub in subscriptions]
+
+        if len(subscriptions) > 0:
             data = dict(message=message.as_dict(), encrypted=False)
-            MQTT.gcm_send([r.uuid for r in mqtt_devices], data)
-
-        if len(mqtt_devices) > 0:
-            uuids = [g.uuid for g in mqtt_devices]
-            gcm_subscriptions = Subscription.query.filter_by(service=message.service).filter(
-                Subscription.device.in_(uuids)).all()
+            MQTT.mqtt_send(uuids, data)
             last_message = Message.query.order_by(Message.id.desc()).first()
-            for l in gcm_subscriptions:
+            for l in subscriptions:
                 l.timestamp_checked = datetime.utcnow()
                 l.last_read = last_message.id if last_message else 0
             db.session.commit()
-        return len(mqtt_devices)
+        return len(subscriptions)
 
     @staticmethod
-    def gcm_send(uuids, data):
+    def mqtt_send(uuids, data):
         url = cfg.mqtt_broker_address
 
         client = mqtt_api.Client()
