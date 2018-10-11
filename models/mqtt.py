@@ -5,6 +5,7 @@ from config import Config
 from models import Subscription, Message
 import paho.mqtt.client as mqtt_api
 
+
 cfg = Config.get_global_instance()
 
 
@@ -36,7 +37,7 @@ class MQTT(db.Model):
         if len(subscriptions) == 0:
             return 0
 
-        #gets all devices uuids in the subscription object
+        # gets all devices uuids in the subscription object
         uuids = [sub.device for sub in subscriptions]
 
         if len(subscriptions) > 0:
@@ -52,9 +53,16 @@ class MQTT(db.Model):
     @staticmethod
     def mqtt_send(uuids, data):
         url = cfg.mqtt_broker_address
+        if ":" in url:
+            port = url.split(":")[1]
+            url = url .split(":")[0]
+        else:
+            # default port
+            port = 1883
 
         client = mqtt_api.Client()
-        client.connect(url, 1883, 60)
+        client.connect(url, port, 60)
 
         for uuid in uuids:
             client.publish(uuid, str(data))
+        client.disconnect()
